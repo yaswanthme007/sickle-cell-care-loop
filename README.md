@@ -3,6 +3,8 @@
 > **India screened 6+ crore people for sickle cell, but a status card is not care. We solve what happens the day after.**  
 > *Built for UnivaBio 2026 — Theme: AI for Human Health (Detect Earlier • Understand Better • Live More Easily)*
 
+🔗 **Live Prototype:** **[https://sickle-cell-care-loop.vercel.app/](https://sickle-cell-care-loop.vercel.app/)**
+
 ![Sickle Cell Care Loop Banner](./sickle_cell_care_loop_thumbnail.jpg)
 
 ---
