@@ -2,11 +2,24 @@
 
 import React from 'react';
 import { useApp } from '@/context/AppContext';
-import { PhoneCall, ShieldAlert, AlertTriangle, ArrowRight, X, Building2, MapPin } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+  PhoneCall,
+  ShieldAlert,
+  AlertTriangle,
+  X,
+  Building2,
+  QrCode
+} from 'lucide-react';
 
 export const EmergencyModal: React.FC = () => {
-  const { emergencyModalOpen, closeEmergencyModal, emergencyResult, language, currentPatient } = useApp();
+  const {
+    emergencyModalOpen,
+    closeEmergencyModal,
+    emergencyResult,
+    language,
+    currentPatient,
+    setErHandoverModalOpen
+  } = useApp();
 
   if (!emergencyModalOpen || !emergencyResult) return null;
 
@@ -21,7 +34,9 @@ export const EmergencyModal: React.FC = () => {
             </div>
             <div>
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-blood-700 bg-blood-100 px-2 py-0.5 rounded">
-                {language === 'en' ? "Emergency Medical Protocol" : "आपातकालीन चिकित्सा नियम"}
+                {language === 'en'
+                  ? 'Emergency Medical Protocol'
+                  : 'आपातकालीन चिकित्सा नियम'}
               </span>
               <h3 className="text-lg sm:text-xl font-black text-blood-950 leading-tight mt-0.5">
                 {emergencyResult.emergencyTitle}
@@ -44,15 +59,21 @@ export const EmergencyModal: React.FC = () => {
           </p>
           <p className="text-xs text-blood-800 mt-2 font-medium">
             {language === 'en'
-              ? "Critical: Do not wait for home visits. These symptoms require urgent hospital assessment with oxygen, IV hydration, or transfusion facilities."
-              : "महत्वपूर्ण: घर पर किसी के आने का इंतजार न करें। इन लक्षणों में तुरंत अस्पताल में ऑक्सीजन या ड्रिप की जरूरत हो सकती है।"}
+              ? `Critical: Do not wait for home visits. Steady-state baseline Hb for ${currentPatient.name} is ${
+                  currentPatient.labProfile?.baselineHbGdl || 7.8
+                } g/dL (${currentPatient.bloodGroup || 'B+'}).`
+              : `महत्वपूर्ण: घर पर किसी के आने का इंतजार न करें। ${currentPatient.name} का सामान्य बेसलाइन Hb ${
+                  currentPatient.labProfile?.baselineHbGdl || 7.8
+                } g/dL (${currentPatient.bloodGroup || 'B+'}) है।`}
           </p>
         </div>
 
         {/* Detected Red Flags */}
         <div className="mb-5">
           <p className="text-[11px] font-bold uppercase tracking-wider text-ink-500 mb-1.5">
-            {language === 'en' ? "Detected Critical Flags:" : "पहचाने गए गंभीर लक्षण:"}
+            {language === 'en'
+              ? 'Detected Critical Flags:'
+              : 'पहचाने गए गंभीर लक्षण:'}
           </p>
           <ul className="space-y-1.5">
             {emergencyResult.detectedFlags.map((flag, idx) => (
@@ -67,15 +88,34 @@ export const EmergencyModal: React.FC = () => {
           </ul>
         </div>
 
-        {/* Primary Call 108 Action Button */}
+        {/* Primary Call 108 Action Button + 2 AM ER Handover Pass */}
         <div className="space-y-2.5">
           <a
             href="tel:108"
             className="w-full py-4 rounded-2xl bg-blood-700 hover:bg-blood-800 text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95"
           >
             <PhoneCall className="w-5 h-5 text-canvas-100 animate-bounce" />
-            <span>{language === 'en' ? "Call 108 Ambulance Directly" : "सीधे 108 एम्बुलेंस पर कॉल करें"}</span>
+            <span>
+              {language === 'en'
+                ? 'Call 108 Ambulance Directly'
+                : 'सीधे 108 एम्बुलेंस पर कॉल करें'}
+            </span>
           </a>
+
+          <button
+            onClick={() => {
+              closeEmergencyModal();
+              setErHandoverModalOpen(true);
+            }}
+            className="w-full py-3 rounded-2xl bg-ink-900 hover:bg-ink-950 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all tap-active"
+          >
+            <QrCode className="w-4 h-4 text-blood-300" />
+            <span>
+              {language === 'en'
+                ? 'Open 2 AM Casualty Doctor QR Handover Pass'
+                : 'आपातकालीन डॉक्टर के लिए QR हैंडओवर पास खोलें'}
+            </span>
+          </button>
 
           {/* Secondary Facility Info */}
           <div className="p-3 rounded-xl bg-canvas-100 border border-canvas-200 flex items-center justify-between text-xs text-ink-700">
@@ -83,8 +123,8 @@ export const EmergencyModal: React.FC = () => {
               <Building2 className="w-4 h-4 text-ink-600" />
               <span>
                 {language === 'en'
-                  ? "Nearest Facility: District Hospital Shahdol / CHC Burhar"
-                  : "नजदीकी केंद्र: जिला चिकित्सालय शहडोल / सी.एच.सी. बुढ़ार"}
+                  ? 'Nearest Facility: District Hospital Shahdol / CHC Burhar'
+                  : 'नजदीकी केंद्र: जिला चिकित्सालय शहडोल / सी.एच.सी. बुढ़ार'}
               </span>
             </div>
             <span className="font-bold text-forest-800 bg-forest-100 px-2 py-0.5 rounded text-[10px]">
@@ -92,11 +132,10 @@ export const EmergencyModal: React.FC = () => {
             </span>
           </div>
 
-          {/* Secondary background notification indicator */}
           <p className="text-center text-[11px] text-ink-500 pt-1">
             {language === 'en'
-              ? `A secondary emergency alert has been queued to ${currentPatient.ashaAssigned} for follow-up.`
-              : `एक द्वितीयक आपातकालीन अलर्ट आपकी आशा कार्यकर्ता (${currentPatient.ashaAssigned}) को भी भेज दिया गया है।`}
+              ? `Emergency ticket simultaneously dispatched to ${currentPatient.ashaAssigned} & CHC Doctor Queue.`
+              : `एक आपातकालीन टिकट आशा (${currentPatient.ashaAssigned}) और CHC डॉक्टर पोर्टल पर भी भेज दिया गया है।`}
           </p>
         </div>
       </div>

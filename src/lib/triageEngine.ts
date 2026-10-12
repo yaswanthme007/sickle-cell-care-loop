@@ -38,6 +38,14 @@ export function evaluateSymptoms(
     );
   }
 
+  if (symptoms.splenicEnlargementSigns) {
+    flags.push(
+      lang === 'en'
+        ? "Acute Splenic Sequestration Risk: Sudden pale palms/lips or swollen left upper abdomen"
+        : "तिल्ली (स्प्लीन) बढ़ना / गंभीर एनीमिया खतरा: अचानक हथेलियां सफेद पड़ना या बाईं तरफ पेट फूलना"
+    );
+  }
+
   const isEmergency = flags.length > 0;
 
   if (isEmergency) {
@@ -49,19 +57,19 @@ export function evaluateSymptoms(
           : "गंभीर चेतावनी: तुरंत अस्पताल जाने की आवश्यकता है",
       actionRequired:
         lang === 'en'
-          ? "Call 108 Ambulance immediately or proceed to District Hospital Shahdol / Nearest CHC. Do not wait for home visits."
-          : "तुरंत 108 एम्बुलेंस बुलाएं या जिला अस्पताल शहडोल / नजदीकी सामुदायिक स्वास्थ्य केंद्र जाएं। घर पर रुक कर इंतजार न करें।",
+          ? "Call 108 Ambulance immediately or proceed to District Hospital Shahdol / Nearest CHC. Show your 2 AM Emergency Handover Pass to the casualty doctor."
+          : "तुरंत 108 एम्बुलेंस बुलाएं या जिला अस्पताल शहडोल / नजदीकी सामुदायिक स्वास्थ्य केंद्र जाएं। आपातकालीन डॉक्टर को अपना हैंडओवर पास दिखाएं।",
       ambulanceContact: "108",
       isEmergency: true,
       detectedFlags: flags
     };
   }
 
-  if (symptoms.mildJointPain || symptoms.fatigue) {
+  if (symptoms.mildJointPain || symptoms.fatigue || symptoms.darkUrineOrJaundice) {
     const warningFlags = [];
     if (symptoms.mildJointPain) {
       warningFlags.push(
-        lang === 'en' ? "Mild joint or limb discomfort" : "हल्का जोड़ों का दर्द"
+        lang === 'en' ? "Mild joint or limb discomfort (Early VOC prodrome)" : "हल्का जोड़ों का दर्द (संकट के शुरुआती लक्षण)"
       );
     }
     if (symptoms.fatigue) {
@@ -69,17 +77,24 @@ export function evaluateSymptoms(
         lang === 'en' ? "Noticeable fatigue / weakness" : "अत्यधिक थकान या कमजोरी"
       );
     }
+    if (symptoms.darkUrineOrJaundice) {
+      warningFlags.push(
+        lang === 'en'
+          ? "Dark cola-colored urine or yellow eyes (Dehydration / Hemolysis warning)"
+          : "गहरे रंग का पेशाब या आंखों में पीलापन (पानी की कमी / हीमोलिसिस चेतावनी)"
+      );
+    }
 
     return {
       severity: 'WARNING',
       emergencyTitle:
         lang === 'en'
-          ? "Pre-Crisis Warning: Rest & Hydrate"
-          : "पूर्व-संकट चेतावनी: आराम करें और पानी पिएं",
+          ? "Pre-Crisis Prodrome Warning: Hydrate & Rest Immediately"
+          : "पूर्व-संकट चेतावनी: तुरंत पानी पिएं और आराम करें",
       actionRequired:
         lang === 'en'
-          ? "Drink 3 to 4 glasses of clean water immediately. Rest in a warm environment. If pain intensifies within 2 hours, notify your ASHA and visit the clinic."
-          : "तुरंत 3 से 4 गिलास साफ पानी पिएं। गर्म जगह पर आराम करें। यदि 2 घंटे में दर्द बढ़ता है, तो तुरंत आशा दीदी को बताएं और अस्पताल जाएं।",
+          ? "Drink 3 to 4 glasses of clean water (or ORS) immediately. Rest in a warm room. If pain intensifies or fever develops within 2 hours, notify your ASHA and visit the CHC."
+          : "तुरंत 3 से 4 गिलास साफ पानी या ओआरएस (ORS) पिएं। गर्म कमरे में आराम करें। यदि 2 घंटे में दर्द बढ़ता है या बुखार आता है, तो आशा दीदी को बताएं और अस्पताल जाएं।",
       ambulanceContact: "108",
       isEmergency: false,
       detectedFlags: warningFlags
@@ -89,11 +104,11 @@ export function evaluateSymptoms(
   return {
     severity: 'NORMAL',
     emergencyTitle:
-      lang === 'en' ? "Stable: No Acute Symptoms" : "स्थिर: कोई गंभीर लक्षण नहीं",
+      lang === 'en' ? "Stable: No Acute Crisis Signs" : "स्थिर: कोई गंभीर लक्षण नहीं",
     actionRequired:
       lang === 'en'
-        ? "Continue daily hydration and regular prescribed Hydroxyurea as scheduled."
-        : "नियमित रूप से भरपूर पानी पिएं और डॉक्टर द्वारा दी गई हाइड्रोक्सीयूरिया समय पर लें।",
+        ? "Continue daily hydration (8+ glasses) and regular prescribed Hydroxyurea as scheduled."
+        : "नियमित रूप से भरपूर पानी (8+ गिलास) पिएं और डॉक्टर द्वारा दी गई हाइड्रोक्सीयूरिया समय पर लें।",
     ambulanceContact: "108",
     isEmergency: false,
     detectedFlags: []

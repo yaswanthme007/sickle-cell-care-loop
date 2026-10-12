@@ -1,4 +1,11 @@
-import { CardStatus, Language, StatusContent, PatientProfile, HomeVisitRecord } from './types';
+import {
+  CardStatus,
+  Language,
+  StatusContent,
+  PatientProfile,
+  HomeVisitRecord,
+  ReferralTicket
+} from './types';
 
 export const STATUS_EXPLANATIONS: Record<CardStatus, Record<Language, StatusContent>> = {
   HbAA: {
@@ -70,7 +77,7 @@ export const STATUS_EXPLANATIONS: Record<CardStatus, Record<Language, StatusCont
         "Take prescribed Hydroxyurea daily at the exact dosage instructed by your doctor.",
         "Never start, stop, or adjust medication doses on your own — always consult your medical officer.",
         "Drink plenty of clean water every day to prevent red blood cells from clumping.",
-        "Watch for warning signs: chest tightness, high fever (>101°F), sudden weakness, or severe pain require immediate medical evaluation (Call 108)."
+        "Watch for warning signs: chest tightness, high fever (>101°F), sudden weakness, swollen left abdomen, or severe pain require immediate medical evaluation (Call 108)."
       ],
       audioScript: "Your card shows HbSS, which means Sickle Cell Disease. With daily prescribed Hydroxyurea and plenty of water, you can stay healthy. Never change your medicine dose on your own. If you have fever, chest pain, or sudden weakness, go to the hospital or call 108 immediately."
     },
@@ -96,71 +103,192 @@ export const SYNTHETIC_PATIENTS: PatientProfile[] = [
     id: "MP-SHD-101",
     name: "Ramesh Kol",
     age: 11,
+    weightKg: 26,
+    bloodGroup: "B+",
     isMinor: true,
     guardianName: "Sunita Kol (Mother)",
     status: "HbSS",
     village: "Burhar",
     district: "Shahdol, MP",
-    phone: "+91 98260 XXXXX",
+    phone: "+91 98260 41102",
     ashaAssigned: "Kavita Devi (ASHA)",
-    nextFollowupDate: "2026-09-28", // Overdue by 7 days
+    nextFollowupDate: "2026-09-28", // Overdue
     lastClinicVisit: "2026-08-25",
-    currentDoseMg: 500
+    currentDoseMg: 500,
+    remainingPillsStock: 4, // Low stock edge case!
+    hydrationTargetGlasses: 8,
+    hydrationLoggedToday: 3,
+    activeWarningCount: 1,
+    adherenceHistory: [
+      { date: "2026-10-06", status: "TAKEN" },
+      { date: "2026-10-07", status: "TAKEN" },
+      { date: "2026-10-08", status: "MISSED", notes: "Felt nauseous in morning" },
+      { date: "2026-10-09", status: "TAKEN" },
+      { date: "2026-10-10", status: "UNLOGGED" },
+      { date: "2026-10-11", status: "MISSED", notes: "Blister strip running low" },
+      { date: "2026-10-12", status: "UNLOGGED" }
+    ],
+    labProfile: {
+      hbA: 0.0,
+      hbS: 80.4,
+      hbF: 16.4,
+      hbA2: 3.2,
+      baselineHbGdl: 7.8,
+      lastCbcDate: "2026-08-25",
+      ancCount: 2850,
+      plateletCount: 210000
+    },
+    prophylaxis: {
+      folicAcidDaily: true,
+      penicillinProphylaxis: true,
+      pneumococcalVaccine: true,
+      spleenPalpationTrained: false
+    }
   },
   {
     id: "MP-SHD-102",
     name: "Pooja Baiga",
     age: 24,
+    weightKg: 52,
+    bloodGroup: "O+",
     isMinor: false,
     status: "HbAS",
     village: "Jaisinghnagar",
     district: "Shahdol, MP",
-    phone: "+91 97520 XXXXX",
+    phone: "+91 97520 88310",
     ashaAssigned: "Kavita Devi (ASHA)",
-    nextFollowupDate: "2026-10-20",
-    lastClinicVisit: "2026-09-15"
+    nextFollowupDate: "2026-11-20",
+    lastClinicVisit: "2026-09-15",
+    hydrationTargetGlasses: 8,
+    hydrationLoggedToday: 6,
+    activeWarningCount: 0,
+    adherenceHistory: [],
+    labProfile: {
+      hbA: 58.2,
+      hbS: 38.1,
+      hbF: 0.9,
+      hbA2: 2.8,
+      baselineHbGdl: 12.1,
+      lastCbcDate: "2026-09-15"
+    }
   },
   {
     id: "MP-SHD-103",
     name: "Arjun Gond",
     age: 16,
+    weightKg: 39,
+    bloodGroup: "A+",
     isMinor: true,
     guardianName: "Mangal Gond (Father)",
     status: "HbSS",
     village: "Sohagpur",
     district: "Shahdol, MP",
-    phone: "+91 94250 XXXXX",
+    phone: "+91 94250 19204",
     ashaAssigned: "Radha Yadav (ASHA)",
-    nextFollowupDate: "2026-09-20", // Overdue by 15 days
+    nextFollowupDate: "2026-09-20", // Overdue by >20 days
     lastClinicVisit: "2026-08-10",
-    currentDoseMg: 750
+    currentDoseMg: 500, // Under-dosed for 39kg (39*15 = 585mg -> needs 750mg review!)
+    remainingPillsStock: 0, // Out of stock!
+    hydrationTargetGlasses: 10,
+    hydrationLoggedToday: 2,
+    activeWarningCount: 2,
+    adherenceHistory: [
+      { date: "2026-10-06", status: "TAKEN" },
+      { date: "2026-10-07", status: "MISSED", notes: "Out of tablets" },
+      { date: "2026-10-08", status: "MISSED", notes: "Out of tablets" },
+      { date: "2026-10-09", status: "MISSED", notes: "Out of tablets" },
+      { date: "2026-10-10", status: "UNLOGGED" },
+      { date: "2026-10-11", status: "MISSED", notes: "Out of tablets" },
+      { date: "2026-10-12", status: "UNLOGGED" }
+    ],
+    labProfile: {
+      hbA: 0.0,
+      hbS: 86.2,
+      hbF: 10.5, // Dropping HbF due to missed Hydroxyurea
+      hbA2: 3.3,
+      baselineHbGdl: 7.2,
+      lastCbcDate: "2026-08-10",
+      ancCount: 3100,
+      plateletCount: 195000
+    },
+    prophylaxis: {
+      folicAcidDaily: true,
+      penicillinProphylaxis: false,
+      pneumococcalVaccine: true,
+      spleenPalpationTrained: true
+    }
   },
   {
     id: "MP-SHD-104",
     name: "Geeta Maravi",
     age: 19,
+    weightKg: 44,
+    bloodGroup: "AB+",
     isMinor: false,
     status: "HbSS",
     village: "Burhar",
     district: "Shahdol, MP",
-    phone: "+91 98930 XXXXX",
+    phone: "+91 98930 77412",
     ashaAssigned: "Kavita Devi (ASHA)",
-    nextFollowupDate: "2026-10-12",
+    nextFollowupDate: "2026-10-25",
     lastClinicVisit: "2026-09-28",
-    currentDoseMg: 500
+    currentDoseMg: 750,
+    remainingPillsStock: 18,
+    hydrationTargetGlasses: 8,
+    hydrationLoggedToday: 7,
+    activeWarningCount: 0,
+    adherenceHistory: [
+      { date: "2026-10-06", status: "TAKEN" },
+      { date: "2026-10-07", status: "TAKEN" },
+      { date: "2026-10-08", status: "TAKEN" },
+      { date: "2026-10-09", status: "TAKEN" },
+      { date: "2026-10-10", status: "TAKEN" },
+      { date: "2026-10-11", status: "TAKEN" },
+      { date: "2026-10-12", status: "TAKEN" }
+    ],
+    labProfile: {
+      hbA: 0.0,
+      hbS: 74.8,
+      hbF: 22.1, // High protective HbF from consistent Hydroxyurea!
+      hbA2: 3.1,
+      baselineHbGdl: 9.1,
+      lastCbcDate: "2026-09-28",
+      ancCount: 2400,
+      plateletCount: 230000
+    },
+    prophylaxis: {
+      folicAcidDaily: true,
+      penicillinProphylaxis: true,
+      pneumococcalVaccine: true,
+      spleenPalpationTrained: true
+    }
   },
   {
     id: "MP-SHD-105",
     name: "Vikram Dhurve",
     age: 28,
+    weightKg: 64,
+    bloodGroup: "B+",
     isMinor: false,
     status: "HbAA",
     village: "Jaisinghnagar",
     district: "Shahdol, MP",
-    phone: "+91 99770 XXXXX",
+    phone: "+91 99770 55123",
     ashaAssigned: "Radha Yadav (ASHA)",
     nextFollowupDate: "2027-01-15",
-    lastClinicVisit: "2026-09-02"
+    lastClinicVisit: "2026-09-02",
+    hydrationTargetGlasses: 8,
+    hydrationLoggedToday: 8,
+    activeWarningCount: 0,
+    adherenceHistory: [],
+    labProfile: {
+      hbA: 96.8,
+      hbS: 0.0,
+      hbF: 0.6,
+      hbA2: 2.6,
+      baselineHbGdl: 14.2,
+      lastCbcDate: "2026-09-02"
+    }
   }
 ];
 
@@ -171,8 +299,9 @@ export const SYNTHETIC_VISITS: HomeVisitRecord[] = [
     patientName: "Arjun Gond",
     ashaName: "Radha Yadav",
     riskLevel: "HIGH",
-    reason: "15 days overdue for clinical follow-up + 4 missed Hydroxyurea logs",
-    status: "PENDING"
+    reason: "Hydroxyurea blister stock exhausted (0 days left) + 4 missed logs & overdue CHC visit",
+    status: "PENDING",
+    interventionType: "STOCK_REFILL"
   },
   {
     id: "VISIT-02",
@@ -180,7 +309,22 @@ export const SYNTHETIC_VISITS: HomeVisitRecord[] = [
     patientName: "Ramesh Kol",
     ashaName: "Kavita Devi",
     riskLevel: "HIGH",
-    reason: "Reported minor joint pain & 3 unlogged days this week",
-    status: "PENDING"
+    reason: "Only 4 days of Hydroxyurea left + overdue CHC Burhar checkup & low hydration",
+    status: "PENDING",
+    interventionType: "COUNSELING"
+  }
+];
+
+export const SYNTHETIC_REFERRALS: ReferralTicket[] = [
+  {
+    id: "REF-SHD-8821",
+    patientId: "MP-SHD-103",
+    patientName: "Arjun Gond (16y, HbSS)",
+    issuedBy: "Radha Yadav (ASHA)",
+    facilityName: "CHC Sohagpur Sickle Cell Nodal Clinic",
+    urgency: "PRIORITY_48H",
+    reason: "Weight increased to 39kg (currently on 500mg = 12.8mg/kg/day). Needs Medical Officer dose review to 750mg + 30-day blister pack refill.",
+    createdAt: "2026-10-12T10:30:00Z",
+    status: "OPEN"
   }
 ];

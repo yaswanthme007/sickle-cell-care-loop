@@ -13,12 +13,15 @@ import { MockQrScanner } from '@/components/MockQrScanner';
 import { MissionBanner } from '@/components/MissionBanner';
 import { AskEducator } from '@/components/AskEducator';
 import { OnboardingFlow } from '@/components/OnboardingFlow';
+import { VocPredictorCard } from '@/components/VocPredictorCard';
+import { ClinicalPassbook } from '@/components/ClinicalPassbook';
+import { EmergencyHandoverModal } from '@/components/EmergencyHandoverModal';
 import {
   CheckCircle2,
   QrCode,
   RefreshCw,
-  UserCheck,
-  MapPin
+  MapPin,
+  ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -31,9 +34,11 @@ export default function Home() {
     language,
     isOnboarded,
     currentPatient,
-    careRecipient,
+    allPatients,
+    selectPatientById,
     resetToOnboarding,
-    setQrModalOpen
+    setQrModalOpen,
+    setErHandoverModalOpen
   } = useApp();
 
   return (
@@ -67,7 +72,7 @@ export default function Home() {
               {userRole === 'patient' ? (
                 <div className="space-y-6">
                   {/* Active Patient Profile & Card Header Bar */}
-                  <div className="p-4 sm:p-5 rounded-3xl bg-canvas-100 border border-canvas-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-gentle">
+                  <div className="p-4 sm:p-5 rounded-3xl bg-canvas-100 border border-canvas-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-gentle">
                     <div className="flex items-center gap-3.5">
                       <div
                         className={`w-12 h-12 rounded-2xl font-black text-sm flex items-center justify-center text-white shadow-sm shrink-0 ${
@@ -88,15 +93,16 @@ export default function Home() {
                           <span className="px-2 py-0.5 rounded-md bg-canvas-200 text-ink-700 text-[11px] font-bold">
                             ID: {currentPatient.id}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md bg-canvas-200 text-ink-700 text-[11px] font-semibold">
-                            {careRecipient === 'child'
-                              ? language === 'en'
-                                ? `Child Profile (${currentPatient.age}y)`
-                                : `बाल प्रोफाइल (${currentPatient.age} वर्ष)`
-                              : language === 'en'
-                              ? 'Adult Profile'
-                              : 'वयस्क प्रोफाइल'}
+                          <span className="px-2 py-0.5 rounded-md bg-canvas-200 text-ink-800 text-[11px] font-bold">
+                            {currentPatient.age}y • {currentPatient.weightKg}kg •{' '}
+                            {currentPatient.bloodGroup}
                           </span>
+                          {currentPatient.labProfile && (
+                            <span className="px-2 py-0.5 rounded-md bg-blood-100 text-blood-900 text-[11px] font-extrabold">
+                              Baseline Hb: {currentPatient.labProfile.baselineHbGdl} g/dL • HbF:{' '}
+                              {currentPatient.labProfile.hbF}%
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-ink-500 mt-0.5 flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-blood-700" />
@@ -108,21 +114,55 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {/* Quick Patient Selector + Scanner + ER Handover Pass */}
+                    <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+                      <select
+                        aria-label="Switch Active Patient Profile"
+                        value={currentPatient.id}
+                        onChange={(e) => selectPatientById(e.target.value)}
+                        className="px-3 py-2 rounded-xl bg-canvas-50 border border-canvas-300 text-ink-900 text-xs font-bold focus:outline-none"
+                      >
+                        {allPatients.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.status} • {p.village})
+                          </option>
+                        ))}
+                      </select>
+
                       <button
                         onClick={() => setQrModalOpen(true)}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-canvas-50 border border-canvas-300 hover:border-ink-400 text-ink-800 text-xs font-bold transition-all tap-active"
                       >
                         <QrCode className="w-3.5 h-3.5 text-blood-700" />
-                        <span>{language === 'en' ? 'Scan QR' : 'QR स्कैन'}</span>
+                        <span>
+                          {language === 'en'
+                            ? 'Scan Card / HPLC Lab'
+                            : 'कार्ड / लैब स्कैन'}
+                        </span>
                       </button>
+
+                      {selectedStatus === 'HbSS' && (
+                        <button
+                          onClick={() => setErHandoverModalOpen(true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blood-800 hover:bg-blood-900 text-white text-xs font-extrabold transition-all tap-active shadow-sm"
+                        >
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          <span>
+                            {language === 'en'
+                              ? '2 AM ER Handover Pass'
+                              : 'आपातकालीन डॉक्टर पास'}
+                          </span>
+                        </button>
+                      )}
 
                       <button
                         onClick={() => resetToOnboarding(2)}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-canvas-200 hover:bg-canvas-300 text-ink-900 text-xs font-bold transition-all tap-active"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
-                        <span>{language === 'en' ? 'Change Card' : 'कार्ड बदलें'}</span>
+                        <span>
+                          {language === 'en' ? 'Guided Setup' : 'गाइडेड सेटअप'}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -130,11 +170,20 @@ export default function Home() {
                   {/* Branching Experience According to Status Card */}
                   {selectedStatus === 'HbSS' && (
                     <div className="space-y-6">
+                      {/* Novel Module 1: 48h Biophysical VOC Crisis Predictor & Hydration Loop */}
+                      <VocPredictorCard />
+
+                      {/* Pillar 1: Understand Your Card */}
                       <UnderstandCard />
+
+                      {/* Pillars 2 & 3: Daily Hydroxyurea + Stock Tracker & Deterministic Crisis Triage */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                         <AdherenceTracker />
                         <SymptomChecker />
                       </div>
+
+                      {/* Novel Module 3: Pediatric Weight-Based Dosing, HPLC Lab & Spleen Check Passbook */}
+                      <ClinicalPassbook />
                     </div>
                   )}
 
@@ -181,6 +230,7 @@ export default function Home() {
 
       {/* Global Modals */}
       <EmergencyModal />
+      <EmergencyHandoverModal />
       <MockQrScanner />
 
       {/* Footer */}
