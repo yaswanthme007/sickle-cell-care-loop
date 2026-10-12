@@ -23,7 +23,10 @@ import {
   Stethoscope,
   HelpCircle,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Scale,
+  Droplets,
+  UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -44,13 +47,44 @@ export const OnboardingFlow: React.FC = () => {
     playSpeech,
     stopSpeech,
     homeVisits,
-    allPatients
+    allPatients,
+    currentPatient,
+    selectPatientById,
+    registerNewPatientCard,
+    referrals
   } = useApp();
 
   const [autoNarrate, setAutoNarrate] = useState<boolean>(false);
   const [showCardHelp, setShowCardHelp] = useState<boolean>(false);
 
+  // Real Patient Intake Mode: 'cohort' (pick existing Shahdol registry card) vs 'custom' (register your own real card)
+  const [intakeMode, setIntakeMode] = useState<'cohort' | 'custom'>('cohort');
+  const [customName, setCustomName] = useState<string>('');
+  const [customAge, setCustomAge] = useState<number>(11);
+  const [customWeight, setCustomWeight] = useState<number>(26);
+  const [customBloodGroup, setCustomBloodGroup] = useState<string>('B+');
+  const [customVillage, setCustomVillage] = useState<string>('Burhar');
+  const [customBaselineHb, setCustomBaselineHb] = useState<number>(7.8);
+  const [customHbF, setCustomHbF] = useState<number>(16.4);
+
   const statusContent = STATUS_EXPLANATIONS[selectedStatus][language];
+
+  // Auto-calculated ICMR clinical parameters for live preview
+  const previewWeight =
+    intakeMode === 'custom' ? customWeight : currentPatient.weightKg || 26;
+  const previewAge =
+    intakeMode === 'custom' ? customAge : currentPatient.age || 11;
+  const previewName =
+    intakeMode === 'custom'
+      ? customName.trim() || (language === 'en' ? 'Your Patient Name' : 'मरीज का नाम')
+      : currentPatient.name;
+  const previewVillage =
+    intakeMode === 'custom' ? customVillage : currentPatient.village;
+  const previewBlood =
+    intakeMode === 'custom' ? customBloodGroup : currentPatient.bloodGroup || 'B+';
+  const calculatedTargetDoseMg =
+    Math.round((previewWeight * 18) / 250) * 250 || 500;
+  const calculatedWaterGlasses = previewAge < 12 ? 8 : 10;
 
   // Contextual professional guide scripts for each step
   const getGuidePersona = () => {
@@ -64,11 +98,11 @@ export const OnboardingFlow: React.FC = () => {
         badgeColor: 'bg-blood-800 text-white',
         message:
           language === 'en'
-            ? '“Namaste. Receiving a Sickle Cell Status Card at a camp is only the first step. I am here to walk you through what your card means and set up your care loop. First, tell me whether you are joining as a family member or as a fellow health worker.”'
-            : '“नमस्ते। शिविर में सिकल सेल कार्ड मिलना केवल पहला कदम है। मैं आपको सरल भाषा में आपके कार्ड का अर्थ समझाने और आपकी देखभाल शुरू करने में मदद करूंगी। सबसे पहले चुनें कि आप परिवार के सदस्य हैं या स्वास्थ्य कार्यकर्ता।”',
+            ? '“Namaste. Receiving a Sickle Cell Status Card at a camp is only the first step. I am here to walk you through what your card means, calculate your child’s hydration & weight-based care plan, and connect you with CHC Burhar. First, choose your role below.”'
+            : '“नमस्ते। शिविर में सिकल सेल कार्ड मिलना केवल पहला कदम है। मैं आपको सरल भाषा में आपके कार्ड का अर्थ समझाने और आपकी देखभाल शुरू करने में मदद करूंगी। सबसे पहले नीचे अपनी भूमिका चुनें।”',
         voiceScript:
           language === 'en'
-            ? 'Namaste. Receiving a Sickle Cell Status Card is only the first step. I am Kavita, your community health guide. Please select whether you have a status card for your family, or if you are a community health worker.'
+            ? 'Namaste. Receiving a Sickle Cell Status Card is only the first step. I am Kavita, your community health guide. Please select whether you are a family member with a status card, or a frontline health worker.'
             : 'नमस्ते। सिकल सेल कार्ड मिलना केवल पहला कदम है। मैं कविता हूँ, आपकी आशा मार्गदर्शक। कृपया चुनें कि आपके पास परिवार का जांच कार्ड है या आप स्वास्थ्य कार्यकर्ता हैं।'
       };
     }
@@ -83,16 +117,16 @@ export const OnboardingFlow: React.FC = () => {
         badgeColor: 'bg-ink-900 text-white',
         message:
           language === 'en'
-            ? '“Look at the color band or the 4-letter code printed on your government card: Red (HbSS), Yellow (HbAS), or Green (HbAA). You don’t need to know medical terms—just tap the matching card below or scan the QR code, and I will explain everything before we open your dashboard.”'
-            : '“अपने सरकारी कार्ड पर छपे रंग या 4 अक्षरों के कोड को देखें: लाल (HbSS), पीला (HbAS), या हरा (HbAA)। आपको डॉक्टरी शब्द जानने की जरूरत नहीं है—बस नीचे मिलते-जुलते कार्ड को चुनें या QR स्कैन करें, डैशबोर्ड खुलने से पहले मैं आपको सब कुछ स्पष्ट रूप से समझाऊंगा।”',
+            ? '“Match the color band on your physical government card—Red (HbSS), Yellow (HbAS), or Green (HbAA). You can either load a verified patient from our Shahdol Registry or enter your own name, weight, and lab values to generate a live digital passbook.”'
+            : '“अपने सरकारी कार्ड पर छपे रंग को मिलाएं—लाल (HbSS), पीला (HbAS), या हरा (HbAA)। आप शहडोल रजिस्ट्री से कार्ड चुन सकते हैं या अपना स्वयं का नाम, वजन और लैब विवरण दर्ज कर सकते हैं।”',
         voiceScript:
           language === 'en'
-            ? 'Look at the color band or code on your card: Red HbSS, Yellow HbAS, or Green HbAA. Tap your card below or scan the QR code, and I will explain what it means before we open your dashboard.'
-            : 'अपने कार्ड पर छपे रंग या कोड को देखें: लाल HbSS, पीला HbAS, या हरा HbAA। नीचे अपना कार्ड चुनें या क्यूआर स्कैन करें।'
+            ? 'Match the color band on your card: Red HbSS, Yellow HbAS, or Green HbAA. You can pick a patient from the Shahdol Registry or enter your own name and weight to configure your live care passbook.'
+            : 'अपने कार्ड पर छपे रंग या कोड को देखें: लाल HbSS, पीला HbAS, या हरा HbAA। नीचे अपना कार्ड चुनें या अपना नाम और वजन दर्ज करें।'
       };
     }
 
-    if (onboardingStep === 2 && userRole === 'asha') {
+    if (onboardingStep === 2 && userRole !== 'patient') {
       return {
         name: language === 'en' ? 'District Mission Coordinator' : 'जिला मिशन समन्वयक',
         role:
@@ -102,17 +136,20 @@ export const OnboardingFlow: React.FC = () => {
         badgeColor: 'bg-forest-800 text-white',
         message:
           language === 'en'
-            ? '“Welcome back, Kavita Didi. Today your Burhar & Jaisinghnagar sector has 2 high-priority home visits flagged due to overdue CHC checkups and missed Hydroxyurea logs. Review your briefing below to open your field roster.”'
-            : '“स्वागत है कविता दीदी। आज आपके बुढ़ार और जयसिंहनगर क्षेत्र में 2 अति-आवश्यक गृह भेंट चिन्हित हैं। अपनी कार्य सूची खोलने के लिए नीचे विवरण देखें।”',
+            ? '“Welcome back to the Shahdol Sector Command. Today your cohort has active blister-pack stock alerts and weight-based Hydroxyurea dose reviews waiting in the queue.”'
+            : '“शहडोल सेक्टर कमांड में आपका स्वागत है। आज आपके क्षेत्र में दवा रिफिल अलर्ट और वजन आधारित खुराक समीक्षा लंबित हैं।”',
         voiceScript:
           language === 'en'
-            ? 'Welcome back Kavita Didi. Your sector has 2 high-priority home visits flagged today. Review your briefing below and open the field dashboard.'
-            : 'स्वागत है कविता दीदी। आज आपके क्षेत्र में 2 आवश्यक गृह भेंट हैं। नीचे विवरण देखकर डैशबोर्ड खोलें।'
+            ? 'Welcome back. Your sector has priority home visits and CHC dose review tickets waiting today. Review your briefing below and open the field dashboard.'
+            : 'स्वागत है। आज आपके क्षेत्र में आवश्यक गृह भेंट और रेफरल टिकट हैं। नीचे विवरण देखकर डैशबोर्ड खोलें।'
       };
     }
 
     return {
-      name: language === 'en' ? 'Dr. Rajesh Verma & Kavita Devi' : 'डॉ. राजेश वर्मा एवं कविता देवी',
+      name:
+        language === 'en'
+          ? 'Dr. Rajesh Verma & Kavita Devi'
+          : 'डॉ. राजेश वर्मा एवं कविता देवी',
       role:
         language === 'en'
           ? 'Your Personalized Post-Screening Care Team'
@@ -126,14 +163,14 @@ export const OnboardingFlow: React.FC = () => {
       message:
         selectedStatus === 'HbSS'
           ? language === 'en'
-            ? '“We have reviewed your HbSS card. With daily prescribed Hydroxyurea, plenty of water, and early warning checks, your family can prevent over 80% of pain crises. Read or listen to your summary below, then enter your Care Loop Dashboard.”'
-            : '“हमने आपके HbSS कार्ड की समीक्षा की है। डॉक्टर द्वारा दी गई नियमित हाइड्रोक्सीयूरिया, भरपूर पानी और समय पर पहचान से 80% से अधिक दर्द के दौरों को रोका जा सकता है। नीचे सारांश सुनें और अपने डैशबोर्ड में प्रवेश करें।”'
+            ? `“We have configured the HbSS Care Loop for ${previewName} (${previewWeight}kg). With daily Hydroxyurea, ${calculatedWaterGlasses} glasses of water, and our 48-hour crisis predictor, your family can prevent over 80% of pain crises.”`
+            : `“हमने ${previewName} (${previewWeight}kg) के लिए HbSS केयर लूप तैयार कर दिया है। नियमित दवा, ${calculatedWaterGlasses} गिलास पानी और समय पर पहचान से 80% से अधिक दर्द के दौरों को रोका जा सकता है।”`
           : selectedStatus === 'HbAS'
           ? language === 'en'
-            ? '“Reassurance first: HbAS means you are a healthy carrier—you do NOT have Sickle Cell Disease and you never need Hydroxyurea medicine. We have customized your dashboard purely for genetic & pre-marital clarity.”'
-            : '“सबसे पहले निश्चिंत रहें: HbAS का अर्थ है कि आप एक स्वस्थ वाहक (कैरियर) हैं—आपको बीमारी नहीं है और आपको किसी दवा की आवश्यकता नहीं है। हमने आपका डैशबोर्ड केवल आनुवंशिक और विवाह-पूर्व परामर्श के लिए तैयार किया है।”'
+            ? '“Reassurance first: HbAS means you are a healthy carrier—you do NOT have Sickle Cell Disease and you never need Hydroxyurea medicine. We have customized your dashboard for partner screening & 1-in-4 genetic inheritance clarity.”'
+            : '“सबसे पहले निश्चिंत रहें: HbAS का अर्थ है कि आप एक स्वस्थ वाहक (कैरियर) हैं—आपको बीमारी नहीं है और आपको किसी दवा की आवश्यकता नहीं है।”'
           : language === 'en'
-          ? '“Good news: Your HbAA card confirms completely normal hemoglobin. Neither you nor your biological children are at risk of Sickle Cell Disease. Review your summary below.”'
+          ? '“Good news: Your HbAA card confirms completely normal hemoglobin. Neither you nor your biological children are at risk of Sickle Cell Disease.”'
           : '“अच्छी खबर: आपका HbAA कार्ड पूरी तरह सामान्य हीमोग्लोबिन की पुष्टि करता है। आपको किसी विशेष उपचार की आवश्यकता नहीं है।”',
       voiceScript: statusContent.audioScript
     };
@@ -141,7 +178,6 @@ export const OnboardingFlow: React.FC = () => {
 
   const guide = getGuidePersona();
 
-  // Trigger auto-narration when step changes if user enabled Auto-Guide Voice
   useEffect(() => {
     if (autoNarrate) {
       playSpeech(guide.voiceScript);
@@ -155,11 +191,38 @@ export const OnboardingFlow: React.FC = () => {
     setOnboardingStep(2);
   };
 
-  const handleChooseCardAndContinue = (status: CardStatus) => {
+  const handleChooseCardStatus = (status: CardStatus) => {
     stopSpeech();
     setSelectedStatus(status);
     if (status !== 'HbSS') {
       setCareRecipient('self');
+    }
+  };
+
+  const handleProceedToStep3 = () => {
+    stopSpeech();
+    if (intakeMode === 'custom') {
+      registerNewPatientCard({
+        name: customName.trim() || 'Aarav Baiga',
+        age: customAge,
+        weightKg: customWeight,
+        bloodGroup: customBloodGroup,
+        village: customVillage,
+        status: selectedStatus,
+        labProfile:
+          selectedStatus === 'HbSS'
+            ? {
+                hbA: 0,
+                hbS: Number((100 - customHbF - 3.2).toFixed(1)),
+                hbF: customHbF,
+                hbA2: 3.2,
+                baselineHbGdl: customBaselineHb,
+                lastCbcDate: new Date().toISOString().split('T')[0],
+                ancCount: 2800,
+                plateletCount: 215000
+              }
+            : undefined
+      });
     }
     setOnboardingStep(3);
   };
@@ -253,16 +316,18 @@ export const OnboardingFlow: React.FC = () => {
                     : s === 2
                     ? userRole === 'patient'
                       ? language === 'en'
-                        ? '2. Identify Card'
-                        : '2. कार्ड पहचानें'
+                        ? '2. Card & Intake'
+                        : '2. कार्ड एवं विवरण'
                       : language === 'en'
                       ? '2. Sector Briefing'
                       : '2. क्षेत्र विवरण'
                     : language === 'en'
-                    ? '3. Care Briefing'
-                    : '3. देखभाल सारांश'}
+                    ? '3. Care Passbook'
+                    : '3. डिजिटल पासबुक'}
                 </span>
-                {s < totalSteps && <span className="text-canvas-300 font-bold">→</span>}
+                {s < totalSteps && (
+                  <span className="text-canvas-300 font-bold">→</span>
+                )}
               </div>
             );
           })}
@@ -285,12 +350,13 @@ export const OnboardingFlow: React.FC = () => {
       >
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            {/* Guide Avatar Badge */}
             <div
               className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center shrink-0 shadow-sm ${guide.badgeColor}`}
             >
               <Stethoscope className="w-5 h-5" />
-              <span className="text-[9px] font-black uppercase tracking-tighter mt-0.5">GUIDE</span>
+              <span className="text-[9px] font-black uppercase tracking-tighter mt-0.5">
+                GUIDE
+              </span>
             </div>
 
             <div className="space-y-1.5">
@@ -389,8 +455,8 @@ export const OnboardingFlow: React.FC = () => {
               </h2>
               <p className="text-xs sm:text-sm text-ink-600 leading-relaxed max-w-2xl">
                 {language === 'en'
-                  ? 'Over 6 crore people in India have been screened, but families often leave the screening camp unsure what their card means or how to stay in care. Choose your role below so Kavita Didi and Dr. Verma can tailor your care loop.'
-                  : 'भारत में 6 करोड़ से अधिक लोगों की जांच हो चुकी है, लेकिन कई परिवार यह नहीं समझ पाते कि उनके कार्ड का क्या अर्थ है। नीचे अपनी भूमिका चुनें ताकि हम आपके लिए सही डैशबोर्ड तैयार कर सकें।'}
+                  ? 'Over 6 crore people in India have been screened, but families often leave the screening camp unsure what their card means or how to prevent painful crises. Choose your role below to begin.'
+                  : 'भारत में 6 करोड़ से अधिक लोगों की जांच हो चुकी है, लेकिन कई परिवार यह नहीं समझ पाते कि उनके कार्ड का क्या अर्थ है। नीचे अपनी भूमिका चुनें।'}
               </p>
             </div>
 
@@ -407,7 +473,9 @@ export const OnboardingFlow: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-blood-800">
-                      {language === 'en' ? 'For Families, Patients & Youth' : 'मरीज, माता-पिता और युवाओं के लिए'}
+                      {language === 'en'
+                        ? 'For Families, Patients & Youth'
+                        : 'मरीज, माता-पिता और युवाओं के लिए'}
                     </span>
                     <h3 className="text-lg font-extrabold text-ink-950 mt-0.5">
                       {language === 'en'
@@ -416,21 +484,23 @@ export const OnboardingFlow: React.FC = () => {
                     </h3>
                     <p className="text-xs text-ink-600 mt-1.5 leading-relaxed">
                       {language === 'en'
-                        ? 'Guided by Dr. Verma: Understand your HbAA, HbAS, or HbSS card in plain language, log daily Hydroxyurea if prescribed, or check warning signs.'
-                        : 'डॉ. वर्मा के मार्गदर्शन में अपने HbAA, HbAS या HbSS कार्ड का अर्थ समझें, दैनिक दवा दर्ज करें और लक्षणों की जांच करें।'}
+                        ? 'Match your physical HbSS, HbAS, or HbAA card, enter your weight & lab values, or scan your hospital HPLC report to activate your care loop.'
+                        : 'अपना HbSS, HbAS या HbAA कार्ड चुनें, वजन और लैब विवरण दर्ज करें, और अपनी व्यक्तिगत देखभाल पासबुक शुरू करें।'}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-6 pt-3 border-t border-canvas-200 flex items-center justify-between text-xs font-extrabold text-blood-800">
                   <span>
-                    {language === 'en' ? 'Begin Guided Family Setup' : 'परिवार सेटअप शुरू करें'}
+                    {language === 'en'
+                      ? 'Begin Guided Family Setup'
+                      : 'परिवार सेटअप शुरू करें'}
                   </span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </button>
 
-              {/* Role B: ASHA Health Worker */}
+              {/* Role B: ASHA Health Worker & CHC Medical Officer */}
               <button
                 onClick={() => handleSelectRole('asha')}
                 className="group p-6 rounded-3xl border-2 border-canvas-200 hover:border-forest-700 bg-canvas-100/70 hover:bg-forest-50/40 text-left transition-all tap-active flex flex-col justify-between shadow-gentle hover:shadow-card"
@@ -441,24 +511,28 @@ export const OnboardingFlow: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-forest-800">
-                      {language === 'en' ? 'For Frontline Workers (ASHA / ANM)' : 'आशा दीदी और स्वास्थ्य कार्यकर्ताओं के लिए'}
+                      {language === 'en'
+                        ? 'For Frontline Workers (ASHA / CHC Doctor)'
+                        : 'आशा दीदी और स्वास्थ्य केंद्र डॉक्टर के लिए'}
                     </span>
                     <h3 className="text-lg font-extrabold text-ink-950 mt-0.5">
                       {language === 'en'
-                        ? 'I Am a Community Health Worker'
-                        : 'मैं आशा / स्वास्थ्य कार्यकर्ता हूँ'}
+                        ? 'I Am a Health Worker / Medical Officer'
+                        : 'मैं आशा कार्यकर्ता / चिकित्सा अधिकारी हूँ'}
                     </h3>
                     <p className="text-xs text-ink-600 mt-1.5 leading-relaxed">
                       {language === 'en'
-                        ? 'View your village cohort in Shahdol, see who is slipping out of care via transparent risk scores, and log home visits.'
-                        : 'शहडोल के गांवों की मरीज सूची देखें, ड्रॉपआउट जोखिम वाले मरीजों की पहचान करें और गृह भेंट दर्ज करें।'}
+                        ? 'Prioritize village home visits via explainable risk scores, refill 30-day Hydroxyurea blister stock, and approve CHC weight-based dose reviews.'
+                        : 'शहडोल के गांवों की मरीज सूची देखें, 30-दिन का दवा स्टॉक रिफिल करें और CHC खुराक समीक्षा स्वीकृत करें।'}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-6 pt-3 border-t border-canvas-200 flex items-center justify-between text-xs font-extrabold text-forest-800">
                   <span>
-                    {language === 'en' ? 'Open ASHA Sector Briefing' : 'आशा क्षेत्र विवरण खोलें'}
+                    {language === 'en'
+                      ? 'Open ASHA & CHC Clinical Portal'
+                      : 'आशा एवं डॉक्टर पोर्टल खोलें'}
                   </span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -467,7 +541,7 @@ export const OnboardingFlow: React.FC = () => {
           </motion.div>
         )}
 
-        {/* STEP 2A: PATIENT CARD IDENTIFICATION */}
+        {/* STEP 2A: REAL PATIENT CARD MATCHING & CLINICAL INTAKE */}
         {onboardingStep === 2 && userRole === 'patient' && (
           <motion.div
             key="step-2-patient"
@@ -484,17 +558,19 @@ export const OnboardingFlow: React.FC = () => {
                   className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-500 hover:text-ink-900 mb-2"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>{language === 'en' ? 'Back to role selection' : 'वापस जाएं'}</span>
+                  <span>
+                    {language === 'en' ? 'Back to role selection' : 'वापस जाएं'}
+                  </span>
                 </button>
                 <h2 className="text-xl sm:text-2xl font-extrabold text-ink-950">
                   {language === 'en'
-                    ? 'What status is printed on your card?'
-                    : 'आपके जांच कार्ड पर कौन-सा परिणाम लिखा है?'}
+                    ? 'Configure Your Physical Card & Clinical Baseline'
+                    : 'अपना सिकल सेल कार्ड एवं स्वास्थ्य विवरण चुनें'}
                 </h2>
                 <p className="text-xs sm:text-sm text-ink-600 mt-0.5">
                   {language === 'en'
-                    ? 'Tap your card color/code below, or scan a sample Mission QR card.'
-                    : 'नीचे अपने कार्ड का रंग/कोड चुनें या डेमो QR कार्ड स्कैन करें।'}
+                    ? 'Match your card color below and either pick a Shahdol Registry profile or enter your own details.'
+                    : 'नीचे अपने कार्ड का रंग चुनें और पंजीकृत मरीज चुनें या अपना स्वयं का नाम और वजन दर्ज करें।'}
                 </p>
               </div>
 
@@ -506,7 +582,9 @@ export const OnboardingFlow: React.FC = () => {
                 >
                   <HelpCircle className="w-4 h-4 text-ochre-700" />
                   <span>
-                    {language === 'en' ? 'Where to look on my card?' : 'कार्ड पर कहाँ देखें?'}
+                    {language === 'en'
+                      ? 'Where to look on my card?'
+                      : 'कार्ड पर कहाँ देखें?'}
                   </span>
                 </button>
 
@@ -515,12 +593,16 @@ export const OnboardingFlow: React.FC = () => {
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-ink-900 hover:bg-ink-950 text-white text-xs font-bold shadow-sm tap-active shrink-0"
                 >
                   <QrCode className="w-4 h-4 text-ochre-400" />
-                  <span>{language === 'en' ? 'Scan Card QR' : 'कार्ड QR स्कैन करें'}</span>
+                  <span>
+                    {language === 'en'
+                      ? 'Scan QR / HPLC Lab'
+                      : 'QR / लैब रिपोर्ट स्कैन'}
+                  </span>
                 </button>
               </div>
             </div>
 
-            {/* Interactive Visual Guide: How to read a physical Indian Sickle Cell Status Card */}
+            {/* Interactive Visual Guide */}
             {showCardHelp && (
               <div className="p-4 rounded-2xl bg-ochre-50/80 border border-ochre-200 text-xs text-ochre-950 space-y-2 animate-in fade-in">
                 <div className="font-extrabold flex items-center gap-2">
@@ -533,7 +615,7 @@ export const OnboardingFlow: React.FC = () => {
                 </div>
                 <p className="text-ochre-900 leading-relaxed">
                   {language === 'en'
-                    ? 'On the front of your National Sickle Cell Mission card or GIPCI counseling card, look at the colored bar or the box labeled "HPLC / Solubility Result":'
+                    ? 'On the front of your National Sickle Cell Mission card, look at the colored bar or the punch-hole boxes on the bottom edge:'
                     : 'अपने राष्ट्रीय सिकल सेल मिशन कार्ड के सामने वाले हिस्से पर रंगीन पट्टी या "Result" बॉक्स देखें:'}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
@@ -565,109 +647,317 @@ export const OnboardingFlow: React.FC = () => {
               </div>
             )}
 
-            {/* Who is this card for? (Parent/Child vs Self) */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">
-                {language === 'en' ? '1. Who is this card for?' : '1. यह कार्ड किसके लिए है?'}
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setCareRecipient('child')}
-                  className={`p-3.5 rounded-2xl border text-left flex items-center gap-3 transition-all tap-active ${
-                    careRecipient === 'child'
-                      ? 'bg-canvas-100 border-ink-900 ring-2 ring-ink-900/10'
-                      : 'bg-canvas-100/50 border-canvas-200 hover:border-canvas-300'
-                  }`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-ochre-100 text-ochre-800 flex items-center justify-center shrink-0">
-                    <Baby className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-ink-950 block">
-                      {language === 'en'
-                        ? 'For My Child (Parent / Guardian)'
-                        : 'मेरे बच्चे के लिए (माता-पिता / अभिभावक)'}
-                    </span>
-                    <span className="text-[11px] text-ink-500">
-                      {language === 'en'
-                        ? 'Demo profile: Ramesh Kol (Age 11, Guardian: Sunita Kol)'
-                        : 'डेमो प्रोफाइल: रमेश कोल (11 वर्ष, अभिभावक: सुनीता कोल)'}
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setCareRecipient('self')}
-                  className={`p-3.5 rounded-2xl border text-left flex items-center gap-3 transition-all tap-active ${
-                    careRecipient === 'self'
-                      ? 'bg-canvas-100 border-ink-900 ring-2 ring-ink-900/10'
-                      : 'bg-canvas-100/50 border-canvas-200 hover:border-canvas-300'
-                  }`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-forest-100 text-forest-800 flex items-center justify-center shrink-0">
-                    <UserCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-ink-950 block">
-                      {language === 'en'
-                        ? 'For Myself (Adult / Young Person)'
-                        : 'मेरे स्वयं के लिए (वयस्क / युवा)'}
-                    </span>
-                    <span className="text-[11px] text-ink-500">
-                      {language === 'en'
-                        ? 'Includes pre-marital & genetic inheritance clarity'
-                        : 'विवाह-पूर्व एवं आनुवंशिक परामर्श जानकारी सहित'}
-                    </span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* 3 Tactile Status Cards */}
+            {/* 1. Select Status Printed on Card */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">
                 {language === 'en'
-                  ? '2. Tap Your Card Result for Dr. Verma’s Explanation:'
-                  : '2. डॉ. वर्मा की समझाइश के लिए अपना कार्ड चुनें:'}
+                  ? '1. Tap the Color / Genotype Printed on Your Card:'
+                  : '1. अपने कार्ड पर छपा रंग या कोड चुनें:'}
               </label>
-              <div className="grid grid-cols-1 gap-3.5">
-                {statusCards.map((card) => (
-                  <button
-                    key={card.id}
-                    onClick={() => handleChooseCardAndContinue(card.id)}
-                    className={`group rounded-2xl border-2 overflow-hidden text-left transition-all tap-active shadow-sm hover:shadow-md ${card.cardClass}`}
-                  >
-                    <div className={`h-2 w-full ${card.bandClass}`} />
-                    <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`px-2.5 py-0.5 rounded-lg text-xs font-black ${card.badgeClass}`}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {statusCards.map((card) => {
+                  const isSelected = selectedStatus === card.id;
+                  return (
+                    <button
+                      key={card.id}
+                      type="button"
+                      onClick={() => handleChooseCardStatus(card.id)}
+                      className={`rounded-2xl border-2 overflow-hidden text-left transition-all tap-active ${
+                        isSelected
+                          ? 'ring-2 ring-ink-950 border-ink-950 shadow-md'
+                          : card.cardClass
+                      }`}
+                    >
+                      <div className={`h-2.5 w-full ${card.bandClass}`} />
+                      <div className="p-3.5 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-black ${card.badgeClass}`}
+                          >
                             {card.id}
                           </span>
-                          <span className="text-sm sm:text-base font-extrabold text-ink-950">
-                            {language === 'en' ? card.titleEn : card.titleHi}
-                          </span>
+                          {isSelected && (
+                            <span className="text-[11px] font-extrabold text-ink-950">
+                              ✓ Selected
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-ink-700 font-medium">
+                        <p className="text-xs font-extrabold text-ink-950 pt-1">
+                          {language === 'en' ? card.titleEn : card.titleHi}
+                        </p>
+                        <p className="text-[11px] text-ink-600">
                           {language === 'en' ? card.subEn : card.subHi}
                         </p>
                       </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                      <div className="inline-flex items-center gap-1.5 text-xs font-extrabold text-ink-900 bg-canvas-50/90 px-3.5 py-2 rounded-xl border border-canvas-300 group-hover:translate-x-1 transition-transform self-start sm:self-center shrink-0">
-                        <span>{language === 'en' ? 'Review With Guide' : 'गाइड के साथ समझें'}</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </div>
-                    </div>
+            {/* 2. Choose Between Verified Shahdol Cohort Profile OR Enter Your Own Real Details */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-canvas-100 border border-canvas-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-canvas-200">
+                <div>
+                  <span className="text-xs font-extrabold text-ink-950 block">
+                    {language === 'en'
+                      ? '2. Connect Patient Record & Clinical Baseline'
+                      : '2. मरीज प्रोफाइल एवं क्लिनिकल विवरण जोड़ें'}
+                  </span>
+                  <span className="text-[11px] text-ink-500">
+                    {language === 'en'
+                      ? 'Select from the Shahdol District Registry or enter your own family member’s details:'
+                      : 'शहडोल रजिस्ट्री से चुनें या अपने परिवार के सदस्य का वास्तविक विवरण दर्ज करें:'}
+                  </span>
+                </div>
+
+                <div className="flex gap-1.5 bg-canvas-200 p-1 rounded-xl self-start sm:self-auto text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setIntakeMode('cohort')}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      intakeMode === 'cohort'
+                        ? 'bg-canvas-50 text-ink-950 shadow-sm'
+                        : 'text-ink-600 hover:text-ink-950'
+                    }`}
+                  >
+                    {language === 'en' ? 'Shahdol Registry' : 'शहडोल रजिस्ट्री'}
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => setIntakeMode('custom')}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all ${
+                      intakeMode === 'custom'
+                        ? 'bg-blood-800 text-white shadow-sm'
+                        : 'text-ink-600 hover:text-ink-950'
+                    }`}
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>
+                      {language === 'en'
+                        ? 'Enter My Own Details'
+                        : 'अपना विवरण दर्ज करें'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {intakeMode === 'cohort' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {allPatients
+                    .filter((p) => p.status === selectedStatus)
+                    .map((pt) => {
+                      const active = currentPatient.id === pt.id;
+                      return (
+                        <button
+                          key={pt.id}
+                          type="button"
+                          onClick={() => {
+                            selectPatientById(pt.id);
+                            setCareRecipient(pt.isMinor ? 'child' : 'self');
+                          }}
+                          className={`p-3.5 rounded-2xl border text-left transition-all tap-active ${
+                            active
+                              ? 'bg-canvas-50 border-ink-950 ring-2 ring-ink-950/10 shadow-sm'
+                              : 'bg-canvas-50/60 border-canvas-300 hover:border-ink-400'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-extrabold text-sm text-ink-950">
+                              {pt.name} ({pt.age}y, {pt.weightKg}kg)
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-canvas-200 text-ink-800">
+                              {pt.id}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-ink-600 mt-1">
+                            Village: {pt.village} • Blood: {pt.bloodGroup} • Baseline Hb:{' '}
+                            {pt.labProfile?.baselineHbGdl || 8.0} g/dL
+                          </p>
+                          {pt.status === 'HbSS' && (
+                            <p className="text-[11px] font-bold text-blood-800 mt-1">
+                              Prescribed HU: {pt.currentDoseMg}mg/d (
+                              {((pt.currentDoseMg || 500) / pt.weightKg).toFixed(1)} mg/kg) •
+                              Stock: {pt.remainingPillsStock}d left
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <label className="p-3 rounded-xl bg-canvas-50 border border-canvas-300">
+                    <span className="text-[10px] font-bold text-ink-500 block">
+                      {language === 'en' ? 'Patient Full Name' : 'मरीज का पूरा नाम'}
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="e.g. Aarav Singh"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      className="w-full mt-1 font-extrabold text-sm bg-transparent text-ink-950 focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl bg-canvas-50 border border-canvas-300">
+                    <span className="text-[10px] font-bold text-ink-500 block">
+                      {language === 'en' ? 'Age (Years)' : 'उम्र (वर्ष)'}
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={customAge}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setCustomAge(val);
+                        setCareRecipient(val < 18 ? 'child' : 'self');
+                      }}
+                      className="w-full mt-1 font-extrabold text-sm bg-transparent text-ink-950 focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl bg-canvas-50 border border-canvas-300">
+                    <span className="text-[10px] font-bold text-ink-500 block">
+                      {language === 'en'
+                        ? 'Weight (kg) — For Dose/Water'
+                        : 'वजन (kg) — खुराक गणना हेतु'}
+                    </span>
+                    <input
+                      type="number"
+                      min={5}
+                      max={110}
+                      value={customWeight}
+                      onChange={(e) => setCustomWeight(Number(e.target.value))}
+                      className="w-full mt-1 font-extrabold text-sm bg-transparent text-blood-800 focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl bg-canvas-50 border border-canvas-300">
+                    <span className="text-[10px] font-bold text-ink-500 block">
+                      {language === 'en' ? 'Village / Sector' : 'गांव / क्षेत्र'}
+                    </span>
+                    <select
+                      value={customVillage}
+                      onChange={(e) => setCustomVillage(e.target.value)}
+                      className="w-full mt-1 font-extrabold text-sm bg-transparent text-ink-950 focus:outline-none"
+                    >
+                      <option value="Burhar">Burhar</option>
+                      <option value="Jaisinghnagar">Jaisinghnagar</option>
+                      <option value="Sohagpur">Sohagpur</option>
+                    </select>
+                  </label>
+
+                  <label className="p-3 rounded-xl bg-canvas-50 border border-canvas-300">
+                    <span className="text-[10px] font-bold text-ink-500 block">
+                      {language === 'en' ? 'Blood Group' : 'रक्त समूह'}
+                    </span>
+                    <select
+                      value={customBloodGroup}
+                      onChange={(e) => setCustomBloodGroup(e.target.value)}
+                      className="w-full mt-1 font-extrabold text-sm bg-transparent text-ink-950 focus:outline-none"
+                    >
+                      <option value="B+">B+</option>
+                      <option value="O+">O+</option>
+                      <option value="A+">A+</option>
+                      <option value="AB+">AB+</option>
+                      <option value="O-">O-</option>
+                    </select>
+                  </label>
+
+                  {selectedStatus === 'HbSS' && (
+                    <label className="p-3 rounded-xl bg-canvas-50 border border-canvas-300">
+                      <span className="text-[10px] font-bold text-ink-500 block">
+                        {language === 'en'
+                          ? 'Baseline Hb (g/dL) & HbF%'
+                          : 'बेसलाइन हीमोग्लोबिन (g/dL)'}
+                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={customBaselineHb}
+                          onChange={(e) => setCustomBaselineHb(Number(e.target.value))}
+                          className="w-1/2 font-extrabold text-sm bg-transparent text-blood-800 focus:outline-none"
+                          title="Baseline Hb g/dL"
+                        />
+                        <span className="text-ink-400">|</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={customHbF}
+                          onChange={(e) => setCustomHbF(Number(e.target.value))}
+                          className="w-1/2 font-extrabold text-sm bg-transparent text-forest-800 focus:outline-none"
+                          title="HbF %"
+                        />
+                      </div>
+                    </label>
+                  )}
+                </div>
+              )}
+
+              {/* Live Auto-Calculated Clinical Preview Strip */}
+              <div className="p-3.5 rounded-2xl bg-canvas-50 border border-canvas-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl font-black text-xs flex items-center justify-center text-white shrink-0 ${
+                      selectedStatus === 'HbSS'
+                        ? 'bg-blood-800'
+                        : selectedStatus === 'HbAS'
+                        ? 'bg-ochre-700'
+                        : 'bg-forest-700'
+                    }`}
+                  >
+                    {selectedStatus}
+                  </div>
+                  <div>
+                    <span className="text-xs font-extrabold text-ink-950 block">
+                      {previewName} ({previewAge}y • {previewWeight}kg • {previewBlood}) —{' '}
+                      {previewVillage}, MP
+                    </span>
+                    <span className="text-[11px] text-ink-600 flex flex-wrap items-center gap-3 mt-0.5">
+                      {selectedStatus === 'HbSS' ? (
+                        <>
+                          <span className="inline-flex items-center gap-1 font-bold text-blood-800">
+                            <Scale className="w-3 h-3" />
+                            ICMR Target HU: ~{calculatedTargetDoseMg}mg/day (18 mg/kg)
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-bold text-forest-800">
+                            <Droplets className="w-3 h-3" />
+                            Anti-Sickling Water Target: {calculatedWaterGlasses} Glasses/day
+                          </span>
+                        </>
+                      ) : selectedStatus === 'HbAS' ? (
+                        <span className="font-bold text-ochre-800">
+                          Healthy Carrier Profile • 0mg Medication • Partner Genetics Enabled
+                        </span>
+                      ) : (
+                        <span className="font-bold text-forest-800">
+                          Normal Hemoglobin Confirmed • No Medication Required
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleProceedToStep3}
+                  className="px-5 py-3 rounded-2xl bg-blood-800 hover:bg-blood-900 text-white font-extrabold text-xs inline-flex items-center gap-2 shadow-sm tap-active shrink-0"
+                >
+                  <span>
+                    {language === 'en'
+                      ? 'Generate Care Passbook →'
+                      : 'देखभाल पासबुक बनाएं →'}
+                  </span>
+                </button>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* STEP 3: PRE-DASHBOARD CLARITY BRIEFING (Understand before entering dashboard!) */}
+        {/* STEP 3: PRE-DASHBOARD CLARITY BRIEFING */}
         {onboardingStep === 3 && userRole === 'patient' && (
           <motion.div
             key="step-3-briefing"
@@ -685,7 +975,11 @@ export const OnboardingFlow: React.FC = () => {
                   className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-500 hover:text-ink-900 mb-2"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>{language === 'en' ? 'Change card status' : 'कार्ड बदलें'}</span>
+                  <span>
+                    {language === 'en'
+                      ? 'Back to card & weight configuration'
+                      : 'वापस कार्ड विवरण पर जाएं'}
+                  </span>
                 </button>
                 <div className="flex items-center gap-2">
                   <span
@@ -700,10 +994,13 @@ export const OnboardingFlow: React.FC = () => {
                     {selectedStatus}
                   </span>
                   <h2 className="text-xl sm:text-2xl font-extrabold text-ink-950">
-                    {statusContent.title}
+                    {currentPatient.name} — {statusContent.title}
                   </h2>
                 </div>
-                <p className="text-xs sm:text-sm text-ink-600 mt-1">{statusContent.tagline}</p>
+                <p className="text-xs sm:text-sm text-ink-600 mt-1">
+                  ID: {currentPatient.id} • {currentPatient.age}y, {currentPatient.weightKg}kg •{' '}
+                  {currentPatient.village}, {currentPatient.district}
+                </p>
               </div>
 
               {/* Voice Readout Button */}
@@ -726,7 +1023,9 @@ export const OnboardingFlow: React.FC = () => {
                   <>
                     <Volume2 className="w-4 h-4 text-blood-800" />
                     <span>
-                      {language === 'en' ? 'Listen to Summary' : 'आवाज में समझाइश सुनें'}
+                      {language === 'en'
+                        ? 'Listen to Summary'
+                        : 'आवाज में समझाइश सुनें'}
                     </span>
                   </>
                 )}
@@ -737,7 +1036,9 @@ export const OnboardingFlow: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 rounded-2xl bg-canvas-100 border border-canvas-200 space-y-1.5">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-ink-500">
-                  {language === 'en' ? '1. What This Means for Health' : '1. स्वास्थ्य के लिए इसका अर्थ'}
+                  {language === 'en'
+                    ? '1. What This Means for Health'
+                    : '1. स्वास्थ्य के लिए इसका अर्थ'}
                 </span>
                 <p className="text-xs sm:text-sm text-ink-900 leading-relaxed">
                   {statusContent.healthMeaning}
@@ -746,7 +1047,9 @@ export const OnboardingFlow: React.FC = () => {
 
               <div className="p-4 rounded-2xl bg-canvas-100 border border-canvas-200 space-y-1.5">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-ink-500">
-                  {language === 'en' ? '2. Marriage & Future Children' : '2. विवाह और बच्चों के लिए नियम'}
+                  {language === 'en'
+                    ? '2. Marriage & Future Children'
+                    : '2. विवाह और बच्चों के लिए नियम'}
                 </span>
                 <p className="text-xs sm:text-sm text-ink-900 leading-relaxed">
                   {statusContent.marriageGuidance}
@@ -754,29 +1057,46 @@ export const OnboardingFlow: React.FC = () => {
               </div>
             </div>
 
-            {/* What Your Personalized Dashboard Contains (Explaining the Status Branching) */}
+            {/* Configured Clinical Modules Summary */}
             <div className="p-5 rounded-2xl bg-canvas-100/70 border border-canvas-300 space-y-3">
               <h3 className="text-xs sm:text-sm font-extrabold text-ink-950 uppercase tracking-wide flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-forest-700" />
                 <span>
                   {language === 'en'
-                    ? `3. How We Prepared Your ${selectedStatus} Care Loop Dashboard:`
-                    : `3. आपके ${selectedStatus} कार्ड के अनुसार डैशबोर्ड में क्या शामिल है:`}
+                    ? `3. Active Modules Configured for ${currentPatient.name}:`
+                    : `3. ${currentPatient.name} के लिए तैयार किए गए मॉड्यूल:`}
                 </span>
               </h3>
 
               {selectedStatus === 'HbSS' && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div className="p-3 rounded-xl bg-canvas-50 border border-canvas-200 flex items-start gap-2.5">
-                    <Pill className="w-4 h-4 text-blood-700 shrink-0 mt-0.5" />
+                    <Droplets className="w-4 h-4 text-forest-700 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold text-ink-950 block">
-                        {language === 'en' ? 'Daily Hydroxyurea Log' : 'दैनिक हाइड्रोक्सीयूरिया ट्रैकर'}
+                        {language === 'en'
+                          ? '48h VOC Crisis Predictor'
+                          : '48-घंटे दर्द संकट पूर्वानुमान'}
                       </span>
                       <span className="text-[11px] text-ink-600">
                         {language === 'en'
-                          ? 'Separates Taken, Missed, and Unlogged days.'
-                          : 'ली गई, छूटी और बिना दर्ज दवा का अलग हिसाब।'}
+                          ? `Live Shahdol weather + ${currentPatient.hydrationTargetGlasses} glasses/day hydration shield.`
+                          : `शहडोल मौसम डेटा + ${currentPatient.hydrationTargetGlasses} गिलास/दिन जल लक्ष्य।`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-canvas-50 border border-canvas-200 flex items-start gap-2.5">
+                    <Pill className="w-4 h-4 text-blood-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-ink-950 block">
+                        {language === 'en'
+                          ? `Weight-Based HU (${currentPatient.currentDoseMg || 500}mg)`
+                          : `वजन-आधारित दवा (${currentPatient.currentDoseMg || 500}mg)`}
+                      </span>
+                      <span className="text-[11px] text-ink-600">
+                        {language === 'en'
+                          ? `Tracks Taken/Missed/Unlogged + Blister stock (${currentPatient.remainingPillsStock ?? 10}d left).`
+                          : `ली गई/छूटी दवा एवं बचा हुआ स्टॉक (${currentPatient.remainingPillsStock ?? 10} दिन)।`}
                       </span>
                     </div>
                   </div>
@@ -784,25 +1104,14 @@ export const OnboardingFlow: React.FC = () => {
                     <PhoneCall className="w-4 h-4 text-blood-700 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold text-ink-950 block">
-                        {language === 'en' ? 'Direct 108 Crisis Triage' : 'तत्काल 108 संकट जांच'}
+                        {language === 'en'
+                          ? '2 AM ER Pass & Spleen Check'
+                          : 'आपातकालीन ER पास एवं तिल्ली जांच'}
                       </span>
                       <span className="text-[11px] text-ink-600">
                         {language === 'en'
-                          ? 'Rule-based check for stroke, fever & chest pain.'
-                          : 'स्ट्रोक, बुखार और सीने के दर्द की नियम-आधारित जांच।'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-canvas-50 border border-canvas-200 flex items-start gap-2.5">
-                    <Users className="w-4 h-4 text-forest-700 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold text-ink-950 block">
-                        {language === 'en' ? 'ASHA Follow-Up Link' : 'आशा दीदी संपर्क'}
-                      </span>
-                      <span className="text-[11px] text-ink-600">
-                        {language === 'en'
-                          ? 'Connected to Kavita Devi (Burhar CHC).'
-                          : 'कविता देवी (बुढ़ार स्वास्थ्य केंद्र) से जुड़ा हुआ।'}
+                          ? `Baseline Hb (${currentPatient.labProfile?.baselineHbGdl || 7.8} g/dL) QR pass for CHC doctors.`
+                          : `डॉक्टरों के लिए बेसलाइन Hb (${currentPatient.labProfile?.baselineHbGdl || 7.8} g/dL) QR कार्ड।`}
                       </span>
                     </div>
                   </div>
@@ -821,7 +1130,7 @@ export const OnboardingFlow: React.FC = () => {
                       </span>
                       <span className="text-[11px] text-ochre-900">
                         {language === 'en'
-                          ? 'Carriers do not take Hydroxyurea. We removed medication logs for you.'
+                          ? 'Carriers do not take Hydroxyurea. Medication logs are disabled for safety.'
                           : 'वाहकों को हाइड्रोक्सीयूरिया नहीं दी जाती, इसलिए दवा ट्रैकर हटा दिया गया है।'}
                       </span>
                     </div>
@@ -831,13 +1140,13 @@ export const OnboardingFlow: React.FC = () => {
                     <div>
                       <span className="font-bold text-ink-950 block">
                         {language === 'en'
-                          ? '1-in-4 Genetic Inheritance Guide'
-                          : '4 में से 1 आनुवंशिक संभावना गाइड'}
+                          ? 'Interactive Partner Genotype Simulator'
+                          : 'इंटरएक्टिव पार्टनर जेनेटिक सिम्युलेटर'}
                       </span>
                       <span className="text-[11px] text-ink-600">
                         {language === 'en'
-                          ? 'Clear pre-marital partner screening & counseling guide.'
-                          : 'विवाह-पूर्व साथी की जांच और परामर्श की स्पष्ट जानकारी।'}
+                          ? 'Simulate HbAA, HbAS, or HbSS partner combinations & print free CHC screening voucher.'
+                          : 'विवाह-पूर्व साथी के कार्ड संयोजन की गणना और मुफ्त जांच वाउचर।'}
                       </span>
                     </div>
                   </div>
@@ -870,16 +1179,16 @@ export const OnboardingFlow: React.FC = () => {
             >
               <span>
                 {language === 'en'
-                  ? `Enter My ${selectedStatus} Care Loop Dashboard`
-                  : `मेरे ${selectedStatus} देखभाल डैशबोर्ड में प्रवेश करें`}
+                  ? `Launch ${currentPatient.name}'s ${selectedStatus} Care Loop Dashboard`
+                  : `${currentPatient.name} के ${selectedStatus} देखभाल डैशबोर्ड में प्रवेश करें`}
               </span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </motion.div>
         )}
 
-        {/* STEP 2B: ASHA WORKER SECTOR BRIEFING */}
-        {onboardingStep === 2 && userRole === 'asha' && (
+        {/* STEP 2B: ASHA WORKER & CHC DOCTOR SECTOR BRIEFING */}
+        {onboardingStep === 2 && userRole !== 'patient' && (
           <motion.div
             key="step-2-asha"
             initial={{ opacity: 0, y: 14 }}
@@ -894,17 +1203,19 @@ export const OnboardingFlow: React.FC = () => {
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-500 hover:text-ink-900 mb-2"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>{language === 'en' ? 'Back to role selection' : 'वापस जाएं'}</span>
+                <span>
+                  {language === 'en' ? 'Back to role selection' : 'वापस जाएं'}
+                </span>
               </button>
               <h2 className="text-xl sm:text-2xl font-extrabold text-ink-950">
                 {language === 'en'
-                  ? 'Frontline Health Worker Briefing — Shahdol District'
-                  : 'आशा कार्यकर्ता क्षेत्रीय विवरण — जिला शहडोल'}
+                  ? 'Frontline ASHA & CHC Medical Officer Briefing — Shahdol'
+                  : 'आशा एवं स्वास्थ्य केंद्र डॉक्टर ब्रीफिंग — जिला शहडोल'}
               </h2>
               <p className="text-xs sm:text-sm text-ink-600 mt-1">
                 {language === 'en'
-                  ? 'Review today’s cohort alerts before opening the field roster.'
-                  : 'मरीजों की सूची खोलने से पहले आज की प्राथमिकताओं की समीक्षा करें।'}
+                  ? 'Review today’s live village outreach & CHC referral queue before opening the portal.'
+                  : 'पोर्टल खोलने से पहले आज की गृह भेंट और CHC रेफरल प्राथमिकताओं की समीक्षा करें।'}
               </p>
             </div>
 
@@ -914,36 +1225,46 @@ export const OnboardingFlow: React.FC = () => {
                   {homeVisits.filter((v) => v.status === 'PENDING').length}
                 </span>
                 <p className="text-xs font-bold text-blood-950 mt-1">
-                  {language === 'en' ? 'High-Priority Home Visits' : 'अति-आवश्यक गृह भेंट'}
+                  {language === 'en'
+                    ? 'Pending Village Home Visits'
+                    : 'लंबित ग्रामीण गृह भेंट'}
                 </p>
                 <p className="text-[11px] text-blood-800 mt-0.5">
                   {language === 'en'
-                    ? 'Patients overdue for CHC checkup or missing doses'
-                    : 'अस्पताल जांच में देरी या छूटी हुई खुराक वाले मरीज'}
+                    ? 'Includes low Hydroxyurea blister stock & overdue checkups'
+                    : 'कम दवा स्टॉक और विलंबित जांच वाले मरीज'}
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-canvas-100 border border-canvas-200">
-                <span className="text-2xl font-black text-ink-950">{allPatients.length}</span>
-                <p className="text-xs font-bold text-ink-900 mt-1">
-                  {language === 'en' ? 'Total Village Cohort' : 'कुल पंजीकृत ग्रामीण मरीज'}
-                </p>
-                <p className="text-[11px] text-ink-600 mt-0.5">
+              <div className="p-4 rounded-2xl bg-ochre-50 border border-ochre-200">
+                <span className="text-2xl font-black text-ochre-800">
+                  {referrals.filter((r) => r.status === 'OPEN').length}
+                </span>
+                <p className="text-xs font-bold text-ochre-950 mt-1">
                   {language === 'en'
-                    ? 'Burhar, Jaisinghnagar & Sohagpur blocks'
-                    : 'बुढ़ार, जयसिंहनगर और सोहागपुर विकासखंड'}
+                    ? 'Open CHC Doctor Dose Reviews'
+                    : 'खुराक समीक्षा रेफरल टिकट'}
+                </p>
+                <p className="text-[11px] text-ochre-800 mt-0.5">
+                  {language === 'en'
+                    ? 'Pediatric weight-to-dose growth adjustments awaiting approval'
+                    : 'बच्चों के वजन के अनुसार खुराक बढ़ाने की समीक्षा'}
                 </p>
               </div>
 
               <div className="p-4 rounded-2xl bg-forest-50 border border-forest-200">
-                <span className="text-2xl font-black text-forest-800">100%</span>
+                <span className="text-2xl font-black text-forest-800">
+                  {allPatients.length}
+                </span>
                 <p className="text-xs font-bold text-forest-950 mt-1">
-                  {language === 'en' ? 'Explainable Risk Scores' : 'पारदर्शी जोखिम स्कोर'}
+                  {language === 'en'
+                    ? 'Active Shahdol Cohort Roster'
+                    : 'कुल पंजीकृत ग्रामीण मरीज'}
                 </p>
                 <p className="text-[11px] text-forest-800 mt-0.5">
                   {language === 'en'
-                    ? 'Every flag shows exact missed doses & overdue days'
-                    : 'प्रत्येक अलर्ट का स्पष्ट कारण दिखाया जाता है'}
+                    ? 'Burhar, Jaisinghnagar & Sohagpur blocks'
+                    : 'बुढ़ार, जयसिंहनगर और सोहागपुर विकासखंड'}
                 </p>
               </div>
             </div>
@@ -954,8 +1275,8 @@ export const OnboardingFlow: React.FC = () => {
             >
               <span>
                 {language === 'en'
-                  ? 'Open ASHA Cohort & Visit Dashboard'
-                  : 'आशा डैशबोर्ड और कार्य सूची खोलें'}
+                  ? 'Open ASHA Outreach & CHC Doctor Portal'
+                  : 'आशा एवं CHC डॉक्टर पोर्टल खोलें'}
               </span>
               <ArrowRight className="w-5 h-5" />
             </button>
