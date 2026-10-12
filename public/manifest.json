@@ -1,0 +1,11 @@
+{
+  "name": "After the Card — Sickle Cell Post-Screening Care Loop",
+  "short_name": "AfterTheCard",
+  "description": "National Sickle Cell Mission post-screening care loop connecting families and ASHA frontline workers in Madhya Pradesh.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF9F6",
+  "theme_color": "#991B1B",
+  "orientation": "portrait-primary",
+  "lang": "en-IN"
+}
